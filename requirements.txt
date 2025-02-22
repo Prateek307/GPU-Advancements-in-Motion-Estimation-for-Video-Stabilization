@@ -1,0 +1,9 @@
+pyopencl
+numpy
+scipy
+pillow
+matplotlib
+opencv-python
+pylabs
+snakeviz
+tqdm
