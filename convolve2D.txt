@@ -1,0 +1,70 @@
+-----------------------------------------------------------------------------------------
+C code to perform 2D convolution (output matches scipy convolve2d)
+-----------------------------------------------------------------------------------------
+
+#include <stdio.h>
+#include <stdlib.h>
+
+int convolve2d(const double *in1, int N1, int N2, 
+               const double *in2, int M1, int M2, 
+               double *out) {
+    // Check for valid dimensions
+    if (N1 < M1 || N2 < M2) {
+        return -1;  // Error: output would be invalid
+    }
+
+    // Allocate output array with the same dimensions as in1
+    for (int i = 0; i < N1; i++) {
+        for (int j = 0; j < N2; j++) {
+            double sum = 0.0;
+            for (int m = 0; m < M1; m++) {
+                for (int n = 0; n < M2; n++) {
+                    int ii = i - m + M1 / 2;  // Centered indexing
+                    int jj = j - n + M2 / 2;
+                    if (ii >= 0 && ii < N1 && jj >= 0 && jj < N2) {
+                        sum += in1[ii * N2 + jj] * in2[m * M2 + n];
+                    } else {
+                        sum += 0.0;  // Fill with zero for boundary
+                    }
+                }
+            }
+            out[i * N2 + j] = sum;
+        }
+    }
+    return 0;
+}
+
+int main() {
+    double image[7][7] = {
+        {1, 2, 3, 4, 5, 6, 7},
+        {8, 9, 10, 11, 12, 13, 14},
+        {15, 16, 17, 18, 19, 20, 21},
+        {22, 23, 24, 25, 26, 27, 28},
+        {29, 30, 31, 32, 33, 34, 35},
+        {36, 37, 38, 39, 40, 41, 42},
+        {43, 44, 45, 46, 47, 48, 49}
+    };
+
+    double filter_kernel[3][3] = {
+        {-1, 1, -1},
+        {-2, 3, 1},
+        {2, -6, 0}
+    };
+
+    double output[7][7];
+
+    if (convolve2d(image[0], 7, 7, filter_kernel[0], 3, 3, output[0]) == -1) {
+        printf("Error: Invalid output dimensions\n");
+        return 1;
+    }
+
+    printf("Output:\n");
+    for (int i = 0; i < 7; i++) {
+        for (int j = 0; j < 7; j++) {
+            printf("%.1f ", output[i][j]);
+        }
+        printf("\n");
+    }
+
+    return 0;
+}

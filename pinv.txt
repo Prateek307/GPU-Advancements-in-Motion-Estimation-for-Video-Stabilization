@@ -1,0 +1,189 @@
+-----------------------------------------------------------------------------------------
+C code to perform Moore Penrose Pseudoinverse (output matches numpy.linalg.pinv)
+-----------------------------------------------------------------------------------------
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+
+// Function to perform Gaussian elimination and calculate the inverse of a matrix
+double** gaussianElimination(double **matrix, int n) {
+    // Augment the matrix with the identity matrix
+    double **augmentedMatrix = (double **)malloc(n * sizeof(double *));
+    for (int i = 0; i < n; ++i) {
+        augmentedMatrix[i] = (double *)malloc((2 * n) * sizeof(double));
+    }
+
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            augmentedMatrix[i][j] = matrix[i][j];
+            augmentedMatrix[i][j + n] = (i == j) ? 1.0 : 0.0;
+        }
+    }
+
+    // Perform Gaussian elimination
+    for (int i = 0; i < n; ++i) {
+        if (augmentedMatrix[i][i] == 0.0) {
+            // Matrix is singular, cannot proceed
+            return 0;
+        }
+
+        // Normalize the current row
+        double divisor = augmentedMatrix[i][i];
+        for (int j = 0; j < 2 * n; ++j) {
+            augmentedMatrix[i][j] /= divisor;
+        }
+
+        // Eliminate other rows
+        for (int k = 0; k < n; ++k) {
+            if (k != i) {
+                double factor = augmentedMatrix[k][i];
+                for (int j = 0; j < 2 * n; ++j) {
+                    augmentedMatrix[k][j] -= factor * augmentedMatrix[i][j];
+                }
+            }
+        }
+    }
+
+    // Copy the inverse matrix from the augmented matrix
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            matrix[i][j] = augmentedMatrix[i][j + n];
+        }
+    }
+
+    return matrix;
+}
+
+// Function to calculate the transpose of a matrix
+void transpose(double **mat, int rows, int cols, double **result) {
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
+            result[j][i] = mat[i][j];
+        }
+    }
+}
+
+// Function to multiply two matrices
+void multiply(double **mat1, int rows1, int cols1, double **mat2, int rows2, int cols2, double **result) {
+    for (int i = 0; i < rows1; ++i) {
+        for (int j = 0; j < cols2; ++j) {
+            result[i][j] = 0;
+            for (int k = 0; k < cols1; ++k) {
+                result[i][j] += mat1[i][k] * mat2[k][j];
+            }
+        }
+    }
+}
+
+// Function to calculate the Moore-Penrose pseudoinverse of a matrix
+double** moorePenroseInverse(double **matrix, int rows, int cols) {
+    // Calculate A^T
+    double **transposeA = (double **)malloc(cols * sizeof(double *));
+    for (int i = 0; i < cols; ++i) {
+        transposeA[i] = (double *)malloc(rows * sizeof(double));
+    }
+    transpose(matrix, rows, cols, transposeA);
+
+    // Print A^T
+    printf("Transpose of matrix A:\n");
+    for (int i = 0; i < cols; ++i) {
+        for (int j = 0; j < rows; ++j) {
+            printf("%lf\t", transposeA[i][j]);
+        }
+        printf("\n");
+    }
+
+    // Calculate A^T * A
+    double **product1 = (double **)malloc(cols * sizeof(double *));
+    for (int i = 0; i < cols; ++i) {
+        product1[i] = (double *)malloc(cols * sizeof(double));
+    }
+    multiply(transposeA, cols, rows, matrix, rows, cols, product1);
+
+    // Print A^T * A
+    printf("\nA^T * A:\n");
+    for (int i = 0; i < cols; ++i) {
+        for (int j = 0; j < cols; ++j) {
+            printf("%lf\t", product1[i][j]);
+        }
+        printf("\n");
+    }
+
+    // Calculate (A^T * A)^-1
+    int success = gaussianElimination(product1, cols);
+    if (!success) {
+        // Matrix is singular, pseudoinverse does not exist
+        printf("\nMatrix is singular. Pseudoinverse does not exist.\n");
+        exit(1);
+    }
+
+    // Print (A^T * A)^-1
+    printf("\nInverse of A^T * A:\n");
+    for (int i = 0; i < cols; ++i) {
+        for (int j = 0; j < cols; ++j) {
+            printf("%lf\t", product1[i][j]);
+        }
+        printf("\n");
+    }
+
+    // Calculate (A^T * A)^-1 * A^T
+    double **pseudoInverse = (double **)malloc(cols * sizeof(double *));
+    for (int i = 0; i < cols; ++i) {
+        pseudoInverse[i] = (double *)malloc(rows * sizeof(double));
+    }
+    multiply(product1, cols, cols, transposeA, cols, rows, pseudoInverse);
+
+    // Print pseudoinverse
+    printf("\nPseudoinverse of matrix A:\n");
+    for (int i = 0; i < cols; ++i) {
+        for (int j = 0; j < rows; ++j) {
+            printf("%lf\t", pseudoInverse[i][j]);
+        }
+        printf("\n");
+    }
+
+    // Free dynamically allocated memory
+    for (int i = 0; i < cols; ++i) {
+        free(transposeA[i]);
+        free(product1[i]);
+    }
+    free(transposeA);
+    free(product1);
+
+    return pseudoInverse;
+}
+
+int main() {
+    int rows = 2;
+    int cols = 2;
+
+    // input matrix as required in Optical Flow code
+    double matrixData[2][2] = {{17705.375,  1707.125}, {1707.125, 14077.375}};
+
+    double **matrix = (double **)malloc(rows * sizeof(double *));
+    for (int i = 0; i < rows; ++i) {
+        matrix[i] = (double *)malloc(cols * sizeof(double));
+        for (int j = 0; j < cols; ++j) {
+            matrix[i][j] = matrixData[i][j];
+        }
+    }
+
+    double **pseudoInverse = moorePenroseInverse(matrix, rows, cols);
+
+    printf("PINV of matrix:\n");
+    for (int i = 0; i < cols; ++i) {
+        for (int j = 0; j < rows; ++j) {
+            printf("%lf\t", pseudoInverse[i][j]);
+        }
+        printf("\n");
+    }
+
+    // Free memory
+    for (int i = 0; i < rows; ++i) {
+        free(matrix[i]);
+    }
+    free(matrix);
+
+    return 0;
+}
